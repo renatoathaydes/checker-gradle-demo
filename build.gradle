@@ -1,0 +1,41 @@
+import java.util.concurrent.atomic.AtomicReference
+
+group 'com.athaydes.checkerframework'
+version '1.0-SNAPSHOT'
+
+apply plugin: 'java'
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+final checkerVersion = '1.9.3'
+final annotatedJdkName = 'jdk8'
+
+final AtomicReference jarRef = new AtomicReference()
+
+task resolveAnnotatedJdk << {
+    def jar = configurations.compile.resolve().find {
+        it.name == "${annotatedJdkName}-${checkerVersion}.jar"
+    }
+    if (!jar) {
+        throw new StopExecutionException('Could not find annotated JDK')
+    }
+    logger.info "Resolved annotated JDK path: ${jar.absolutePath}"
+    jarRef.set jar.absolutePath
+}
+
+compileJava {
+    dependsOn << 'resolveAnnotatedJdk'
+    sourceCompatibility = 1.8
+}.doFirst {
+   options.compilerArgs = ['-processor', 'org.checkerframework.checker.nullness.NullnessChecker',
+                           "-Xbootclasspath/p:${jarRef.get()}"]
+}
+
+dependencies {
+    compile group: 'org.checkerframework', name: 'checker', version: checkerVersion
+    compile group: 'org.checkerframework', name: 'checker-qual', version: checkerVersion
+    compile group: 'org.checkerframework', name: 'jdk8', version: checkerVersion
+}
